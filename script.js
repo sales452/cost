@@ -7,6 +7,7 @@ async function loadData() {
 }
 
 loadData();
+
 const searchInput = document.getElementById("search");
 const resultsDiv = document.getElementById("results");
 
@@ -21,6 +22,7 @@ searchInput.addEventListener("input", () => {
 
   displayResults(filtered);
 });
+
 function displayResults(list) {
   resultsDiv.innerHTML = "";
 
