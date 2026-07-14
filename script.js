@@ -1,9 +1,15 @@
 let products = [];
 
 async function loadData() {
-  const url = "YOUR_GOOGLE_SCRIPT_URL";   // const url = "https://script.google.com/macros/s/AKfycbya6DEe15tzth8y931GK-zQaqAzDvw0b3fXXXX/exec";
-  const response = await fetch(url);
-  products = await response.json();
+  const url = "https://script.google.com/macros/s/AKfycbya6DEe15tzth8y931GK-zQaqAzDvw0b3fFCijzK-ihR-q5kBPge4p14hZjw1pr8LlrsA/exec";
+  
+  try {
+    const response = await fetch(url);
+    products = await response.json();
+    console.log("Loaded products:", products);
+  } catch (error) {
+    console.log("Error loading data:", error);
+  }
 }
 
 loadData();
