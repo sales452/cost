@@ -1,53 +1,74 @@
 let products = [];
 
-async function loadData() {
-  const url = "https://script.google.com/macros/s/AKfycbya6DEe15tzth8y931GK-zQaqAzDvw0b3fFCijzK-ihR-q5kBPge4p14hZjw1pr8LlrsA/exec";
-  
-  try {
-    const response = await fetch(url);
-    products = await response.json();
-    console.log("Loaded products:", products);
-  } catch (error) {
-    console.log("Error loading data:", error);
-  }
-}
-
-loadData();
+const url = "https://script.google.com/macros/s/AKfycbya6DEe15tzth8y931GK-zQaqAzDvw0b3fFCijzK-ihR-q5kBPge4p14hZjw1pr8LlrsA/exec";
 
 const searchInput = document.getElementById("search");
 const resultsDiv = document.getElementById("results");
 
-searchInput.addEventListener("input", () => {
-  const query = searchInput.value.toLowerCase();
+async function loadData() {
+    try {
+        resultsDiv.innerHTML = "<p>Loading products...</p>";
 
-  const filtered = products.filter(p =>
-    (p.ITEM || "").toLowerCase().includes(query) ||
-    (p.CUSTOMER || "").toLowerCase().includes(query) ||
-    (p.ENGINE || "").toLowerCase().includes(query)
-  );
+        const response = await fetch(url);
 
-  displayResults(filtered);
-});
+        if (!response.ok) {
+            throw new Error("Unable to fetch data");
+        }
+
+        products = await response.json();
+
+        resultsDiv.innerHTML = `<p>${products.length} Products Loaded</p>`;
+
+    } catch (err) {
+        console.error(err);
+        resultsDiv.innerHTML = "<p style='color:red'>Failed to load data.</p>";
+    }
+}
+
+loadData();
+
+searchInput.addEventListener("input", searchProducts);
+
+function searchProducts() {
+
+    const query = searchInput.value.trim().toLowerCase();
+
+    if (query === "") {
+        resultsDiv.innerHTML = "";
+        return;
+    }
+
+    const filtered = products.filter(item => {
+
+        return [
+            item.ITEM,
+            item.CUSTOMER,
+            item.ENGINE,
+            item.PRICE,
+            item.QUANTITY
+        ].some(value =>
+            String(value || "").toLowerCase().includes(query)
+        );
+
+    });
+
+    displayResults(filtered);
+}
 
 function displayResults(list) {
-  resultsDiv.innerHTML = "";
 
-  list.forEach(item => {
-    const card = `
-      <div style="
-        padding: 12px;
-        margin-bottom: 10px;
-        border-radius: 10px;
-        background: #f9f9f9;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      ">
-        <strong>${item.ITEM}</strong><br>
-        Customer: ${item.CUSTOMER}<br>
-        Price: ${item.PRICE}<br>
-        Engine: ${item.ENGINE}<br>
-        Quantity: ${item.QUANTITY}
-      </div>
-    `;
-    resultsDiv.innerHTML += card;
-  });
+    if (list.length === 0) {
+        resultsDiv.innerHTML = "<p>No products found.</p>";
+        return;
+    }
+
+    resultsDiv.innerHTML = list.map(item => `
+        <div class="card">
+            <h3>${item.ITEM || "-"}</h3>
+            <p><strong>Customer:</strong> ${item.CUSTOMER || "-"}</p>
+            <p><strong>Engine:</strong> ${item.ENGINE || "-"}</p>
+            <p><strong>Price:</strong> $${item.PRICE || "-"}</p>
+            <p><strong>Quantity:</strong> ${item.QUANTITY || "-"}</p>
+        </div>
+    `).join("");
 }
