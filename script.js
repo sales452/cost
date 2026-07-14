@@ -1,7 +1,7 @@
 let products = [];
 
 async function loadData() {
-  const url = "YOUR_GOOGLE_SCRIPT_URL";   // https://script.google.com/macros/s/AKfycbya6DEe15tzth8y931GK-zQaqAzDvw0b3fFCijzK-ihR-q5kBPge4p14hZjw1pr8LlrsA/exec
+  const url = "YOUR_GOOGLE_SCRIPT_URL";   // const url = "https://script.google.com/macros/s/AKfycbya6DEe15tzth8y931GK-zQaqAzDvw0b3fXXXX/exec";
   const response = await fetch(url);
   products = await response.json();
 }
