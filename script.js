@@ -89,9 +89,12 @@ function formatCurrency(raw){
 
 }
 
+// Default GST rate used when a row doesn't specify its own GST% (standard India GST).
+const DEFAULT_GST_RATE = 18;
+
 // Computes the price including GST.
-// Uses a dedicated "GST PRICE"-style column if the sheet has one;
-// otherwise calculates it from PRICE + GST% (GST is assumed to be a percentage, e.g. "18" or "18%").
+// Priority: a dedicated "GST PRICE"-style column if the sheet has one,
+// then PRICE + GST% from the sheet, then PRICE + DEFAULT_GST_RATE if no GST% is given.
 function getGstPrice(item){
 
     const directGstPrice = getField(item,["GST PRICE","GST_PRICE","GSTPRICE","PRICE WITH GST","PRICE INCL GST","TOTAL","TOTAL AMOUNT"]);
@@ -103,9 +106,8 @@ function getGstPrice(item){
     }
 
     const priceRaw = getField(item,["PRICE"]);
-    const gstRaw = getField(item,["GST"]);
 
-    if(priceRaw === "" || gstRaw === ""){
+    if(priceRaw === ""){
 
         return "";
 
@@ -117,11 +119,19 @@ function getGstPrice(item){
 
     const price = parseFloat(priceStr.replace(/[^0-9.]/g,""));
 
-    const gstPercent = parseFloat(String(gstRaw).replace(/[^0-9.]/g,""));
-
-    if(isNaN(price) || isNaN(gstPercent)){
+    if(isNaN(price)){
 
         return "";
+
+    }
+
+    const gstRaw = getField(item,["GST"]);
+
+    let gstPercent = parseFloat(String(gstRaw).replace(/[^0-9.]/g,""));
+
+    if(isNaN(gstPercent)){
+
+        gstPercent = DEFAULT_GST_RATE;
 
     }
 
@@ -200,7 +210,7 @@ function displayResults(list){
         <div class="row"><span class="label">Price:</span> ${formatCurrency(price)}</div>
         <div class="row"><span class="label">Amount:</span> ${formatCurrency(amount)}</div>
         ${gst ? `<div class="row"><span class="label">GST:</span> ${gst}</div>` : ""}
-        ${gstPrice ? `<div class="row"><span class="label">Price (incl. GST):</span> ${formatCurrency(gstPrice)}</div>` : ""}
+        ${gstPrice ? `<div class="row"><span class="label">Price (incl. GST${!gst ? " @ "+DEFAULT_GST_RATE+"%" : ""}):</span> ${formatCurrency(gstPrice)}</div>` : ""}
         ${ourNumber ? `<div class="row"><span class="label">Our No.:</span> ${ourNumber}</div>` : ""}
     </div>
     `;
