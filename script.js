@@ -5,31 +5,27 @@ const url = "https://script.google.com/macros/s/AKfycbya6DEe15tzth8y931GK-zQaqAz
 const searchInput = document.getElementById("search");
 const resultsDiv = document.getElementById("results");
 
-async function loadData(){
+async function loadData() {
 
-    resultsDiv.innerHTML="<div class='loading'>Loading Products...</div>";
+    resultsDiv.innerHTML = "<div class='loading'>Loading Products...</div>";
 
-    try{
+    try {
 
         const response = await fetch(url);
 
-        if(!response.ok){
-
+        if (!response.ok) {
             throw new Error("Unable to load data");
-
         }
 
-        products=await response.json();
+        products = await response.json();
 
-        resultsDiv.innerHTML="<div class='loading'>Type to search products...</div>";
+        resultsDiv.innerHTML = "<div class='loading'>Type to search products...</div>";
 
-    }
-
-    catch(error){
+    } catch (error) {
 
         console.log(error);
 
-        resultsDiv.innerHTML="<div class='no-result'>Unable to connect to Google Sheet.</div>";
+        resultsDiv.innerHTML = "<div class='no-result'>Unable to connect to Google Sheet.</div>";
 
     }
 
@@ -37,15 +33,14 @@ async function loadData(){
 
 loadData();
 
-searchInput.addEventListener("input",searchProducts);
+searchInput.addEventListener("input", searchProducts);
 
-// Look up a field on a row by trying several possible header spellings,
-// since Google Sheets header names can vary slightly (spacing, case, etc.)
-function getField(item, keys){
+// Get field safely
+function getField(item, keys) {
 
-    for(const key of keys){
+    for (const key of keys) {
 
-        if(item[key] !== undefined && item[key] !== null && item[key] !== ""){
+        if (item[key] !== undefined && item[key] !== null && item[key] !== "") {
 
             return item[key];
 
@@ -57,57 +52,67 @@ function getField(item, keys){
 
 }
 
-// Formats a price/amount value as INR (₹) by default.
-// If the raw value already contains a $ sign, it's treated as USD instead.
-function formatCurrency(raw){
+// Format Currency
+function formatCurrency(raw) {
 
-    if(raw===undefined || raw===null || raw===""){
+    if (raw === undefined || raw === null || raw === "") {
 
         return "-";
 
     }
 
-    const str=String(raw).trim();
+    const str = String(raw).trim();
 
-    const isUSD = str.includes("$");
+    const isUSD = str.includes("$") || str.toUpperCase().includes("USD");
 
-    const num = parseFloat(str.replace(/[^0-9.]/g,""));
+    const num = parseFloat(str.replace(/[^0-9.]/g, ""));
 
-    if(isNaN(num)){
+    if (isNaN(num)) {
 
         return str;
 
     }
 
-    if(isUSD){
+    if (isUSD) {
 
-        return "$" + num.toLocaleString("en-US", {maximumFractionDigits:2});
+        return "$" + num.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
 
     }
 
-    return "₹" + num.toLocaleString("en-IN", {maximumFractionDigits:2});
+    return "₹" + num.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 
 }
 
-// Default GST rate used when a row doesn't specify its own GST% (standard India GST).
 const DEFAULT_GST_RATE = 18;
 
-// Computes the price including GST.
-// Priority: a dedicated "GST PRICE"-style column if the sheet has one,
-// then PRICE + GST% from the sheet, then PRICE + DEFAULT_GST_RATE if no GST% is given.
-function getGstPrice(item){
+// Calculate GST Price
+function getGstPrice(item) {
 
-    const directGstPrice = getField(item,["GST PRICE","GST_PRICE","GSTPRICE","PRICE WITH GST","PRICE INCL GST","TOTAL","TOTAL AMOUNT"]);
+    const directGstPrice = getField(item, [
+        "GST PRICE",
+        "GST_PRICE",
+        "GSTPRICE",
+        "PRICE WITH GST",
+        "PRICE INCL GST",
+        "TOTAL",
+        "TOTAL AMOUNT"
+    ]);
 
-    if(directGstPrice !== ""){
+    if (directGstPrice !== "") {
 
         return directGstPrice;
 
     }
 
-    const priceRaw = getField(item,["PRICE"]);
+    const priceRaw = getField(item, ["PRICE"]);
 
-    if(priceRaw === ""){
+    if (priceRaw === "") {
 
         return "";
 
@@ -115,58 +120,63 @@ function getGstPrice(item){
 
     const priceStr = String(priceRaw).trim();
 
-    const isUSD = priceStr.includes("$");
+    const isUSD = priceStr.includes("$") || priceStr.toUpperCase().includes("USD");
 
-    const price = parseFloat(priceStr.replace(/[^0-9.]/g,""));
+    const price = parseFloat(priceStr.replace(/[^0-9.]/g, ""));
 
-    if(isNaN(price)){
+    if (isNaN(price)) {
 
         return "";
 
     }
 
-    const gstRaw = getField(item,["GST"]);
+    let gst = parseFloat(String(getField(item, ["GST"])).replace(/[^0-9.]/g, ""));
 
-    let gstPercent = parseFloat(String(gstRaw).replace(/[^0-9.]/g,""));
+    if (isNaN(gst)) {
 
-    if(isNaN(gstPercent)){
-
-        gstPercent = DEFAULT_GST_RATE;
+        gst = DEFAULT_GST_RATE;
 
     }
 
-    const total = price + (price*gstPercent/100);
+    // Convert 0.18 to 18
+    if (gst > 0 && gst < 1) {
 
-    return isUSD ? "$"+total : "₹"+total;
+        gst = gst * 100;
+
+    }
+
+    const total = price * (1 + gst / 100);
+
+    return isUSD ? "$" + total : "₹" + total;
 
 }
 
-function searchProducts(){
+function searchProducts() {
 
-    const query=searchInput.value.trim().toLowerCase();
+    const query = searchInput.value.trim().toLowerCase();
 
-    if(query===""){
+    if (query === "") {
 
-        resultsDiv.innerHTML="";
+        resultsDiv.innerHTML = "";
 
         return;
 
     }
 
-    const filtered=products.filter(item=>{
+    const filtered = products.filter(item => {
 
         return [
 
-            getField(item,["ITEM"]),
-            getField(item,["CUSTOMER"]),
-            getField(item,["ENGINE"]),
-            getField(item,["PRICE"]),
-            getField(item,["QUANTITY"]),
-            getField(item,["OUR NUMBER","OUR_NUMBER","OURNUMBER"])
+            getField(item, ["ITEM"]),
+            getField(item, ["CUSTOMER"]),
+            getField(item, ["ENGINE"]),
+            getField(item, ["PRICE"]),
+            getField(item, ["QUANTITY"]),
+            getField(item, ["OUR NUMBER", "OUR_NUMBER", "OURNUMBER"])
 
-        ].some(value=>
+        ].some(value =>
 
-            String(value||"").toLowerCase().includes(query)
+            String(value || "").toLowerCase().includes(query)
 
         );
 
@@ -176,44 +186,80 @@ function searchProducts(){
 
 }
 
-function displayResults(list){
+function displayResults(list) {
 
-    if(list.length===0){
+    if (list.length === 0) {
 
-        resultsDiv.innerHTML="<div class='no-result'>No Products Found</div>";
+        resultsDiv.innerHTML = "<div class='no-result'>No Products Found</div>";
 
         return;
 
     }
 
-    resultsDiv.innerHTML=list.map(item=>{
+    resultsDiv.innerHTML = list.map(item => {
 
-        const itemName = getField(item,["ITEM"]) || "-";
-        const customer = getField(item,["CUSTOMER"]) || "-";
-        const engine = getField(item,["ENGINE"]) || "-";
-        const quantity = getField(item,["QUANTITY"]);
-        const unit = getField(item,["UNIT",""]);
-        const price = getField(item,["PRICE"]);
-        const amount = getField(item,["AMOUNT"]);
-        const gst = getField(item,["GST"]);
+        const itemName = getField(item, ["ITEM"]) || "-";
+        const customer = getField(item, ["CUSTOMER"]) || "-";
+        const engine = getField(item, ["ENGINE"]) || "-";
+        const quantity = getField(item, ["QUANTITY"]);
+        const unit = getField(item, ["UNIT"]);
+        const price = getField(item, ["PRICE"]);
+        const amount = getField(item, ["AMOUNT"]);
+        const gst = getField(item, ["GST"]);
         const gstPrice = getGstPrice(item);
-        const ourNumber = getField(item,["OUR NUMBER","OUR_NUMBER","OURNUMBER"]);
+        const ourNumber = getField(item, ["OUR NUMBER", "OUR_NUMBER", "OURNUMBER"]);
 
-        const qtyDisplay = quantity ? `${quantity}${unit ? " "+unit : ""}` : "-";
+        const qtyDisplay = quantity ? `${quantity}${unit ? " " + unit : ""}` : "-";
+
+        let gstDisplay = "";
+
+        if (gst !== "") {
+
+            let gstValue = parseFloat(gst);
+
+            if (!isNaN(gstValue)) {
+
+                if (gstValue > 0 && gstValue < 1) {
+
+                    gstValue = gstValue * 100;
+
+                }
+
+                gstDisplay = gstValue + "%";
+
+            } else {
+
+                gstDisplay = gst;
+
+            }
+
+        }
 
         return `
-    <div class="card">
-        <h3>${itemName}</h3>
-        <div class="row"><span class="label">Customer:</span> ${customer}</div>
-        <div class="row"><span class="label">Engine:</span> ${engine}</div>
-        <div class="row"><span class="label">Quantity:</span> ${qtyDisplay}</div>
-        <div class="row"><span class="label">Price:</span> ${formatCurrency(price)}</div>
-        <div class="row"><span class="label">Amount:</span> ${formatCurrency(amount)}</div>
-        ${gst ? `<div class="row"><span class="label">GST:</span> ${gst}</div>` : ""}
-        ${gstPrice ? `<div class="row"><span class="label">Price (incl. GST${!gst ? " @ "+DEFAULT_GST_RATE+"%" : ""}):</span> ${formatCurrency(gstPrice)}</div>` : ""}
-        ${ourNumber ? `<div class="row"><span class="label">Our No.:</span> ${ourNumber}</div>` : ""}
-    </div>
-    `;
+
+        <div class="card">
+
+            <h3>${itemName}</h3>
+
+            <div class="row"><span class="label">Customer:</span> ${customer}</div>
+
+            <div class="row"><span class="label">Engine:</span> ${engine}</div>
+
+            <div class="row"><span class="label">Quantity:</span> ${qtyDisplay}</div>
+
+            <div class="row"><span class="label">Price:</span> ${formatCurrency(price)}</div>
+
+            <div class="row"><span class="label">Amount:</span> ${formatCurrency(amount)}</div>
+
+            ${gstDisplay ? `<div class="row"><span class="label">GST:</span> ${gstDisplay}</div>` : ""}
+
+            ${gstPrice ? `<div class="row"><span class="label">Price (Incl. GST):</span> ${formatCurrency(gstPrice)}</div>` : ""}
+
+            ${ourNumber ? `<div class="row"><span class="label">Our No.:</span> ${ourNumber}</div>` : ""}
+
+        </div>
+
+        `;
 
     }).join("");
 
