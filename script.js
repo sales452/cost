@@ -89,6 +89,48 @@ function formatCurrency(raw){
 
 }
 
+// Computes the price including GST.
+// Uses a dedicated "GST PRICE"-style column if the sheet has one;
+// otherwise calculates it from PRICE + GST% (GST is assumed to be a percentage, e.g. "18" or "18%").
+function getGstPrice(item){
+
+    const directGstPrice = getField(item,["GST PRICE","GST_PRICE","GSTPRICE","PRICE WITH GST","PRICE INCL GST","TOTAL","TOTAL AMOUNT"]);
+
+    if(directGstPrice !== ""){
+
+        return directGstPrice;
+
+    }
+
+    const priceRaw = getField(item,["PRICE"]);
+    const gstRaw = getField(item,["GST"]);
+
+    if(priceRaw === "" || gstRaw === ""){
+
+        return "";
+
+    }
+
+    const priceStr = String(priceRaw).trim();
+
+    const isUSD = priceStr.includes("$");
+
+    const price = parseFloat(priceStr.replace(/[^0-9.]/g,""));
+
+    const gstPercent = parseFloat(String(gstRaw).replace(/[^0-9.]/g,""));
+
+    if(isNaN(price) || isNaN(gstPercent)){
+
+        return "";
+
+    }
+
+    const total = price + (price*gstPercent/100);
+
+    return isUSD ? "$"+total : "₹"+total;
+
+}
+
 function searchProducts(){
 
     const query=searchInput.value.trim().toLowerCase();
@@ -144,6 +186,7 @@ function displayResults(list){
         const price = getField(item,["PRICE"]);
         const amount = getField(item,["AMOUNT"]);
         const gst = getField(item,["GST"]);
+        const gstPrice = getGstPrice(item);
         const ourNumber = getField(item,["OUR NUMBER","OUR_NUMBER","OURNUMBER"]);
 
         const qtyDisplay = quantity ? `${quantity}${unit ? " "+unit : ""}` : "-";
@@ -157,6 +200,7 @@ function displayResults(list){
         <div class="row"><span class="label">Price:</span> ${formatCurrency(price)}</div>
         <div class="row"><span class="label">Amount:</span> ${formatCurrency(amount)}</div>
         ${gst ? `<div class="row"><span class="label">GST:</span> ${gst}</div>` : ""}
+        ${gstPrice ? `<div class="row"><span class="label">Price (incl. GST):</span> ${formatCurrency(gstPrice)}</div>` : ""}
         ${ourNumber ? `<div class="row"><span class="label">Our No.:</span> ${ourNumber}</div>` : ""}
     </div>
     `;
