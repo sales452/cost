@@ -91,7 +91,7 @@ function formatCurrency(raw) {
 
 const DEFAULT_GST_RATE = 18;
 
-// Calculate GST Price
+// Calculate GST Price (for the FULL quantity, matching "Amount")
 function getGstPrice(item) {
 
     const directGstPrice = getField(item, [
@@ -110,21 +110,45 @@ function getGstPrice(item) {
 
     }
 
-    const priceRaw = getField(item, ["PRICE"]);
+    // Prefer AMOUNT (price x quantity) as the base; fall back to PRICE x QUANTITY
+    let baseRaw = getField(item, ["AMOUNT"]);
+    let baseStr;
 
-    if (priceRaw === "") {
+    if (baseRaw !== "") {
 
-        return "";
+        baseStr = String(baseRaw).trim();
+
+    } else {
+
+        const priceRaw = getField(item, ["PRICE"]);
+
+        if (priceRaw === "") {
+
+            return "";
+
+        }
+
+        const priceStr = String(priceRaw).trim();
+        const price = parseFloat(priceStr.replace(/[^0-9.]/g, ""));
+
+        if (isNaN(price)) {
+
+            return "";
+
+        }
+
+        const qtyRaw = getField(item, ["QUANTITY"]);
+        const qty = parseFloat(String(qtyRaw).replace(/[^0-9.]/g, "")) || 1;
+
+        baseStr = String(price * qty) + (priceStr.includes("$") || priceStr.toUpperCase().includes("USD") ? " USD" : "");
 
     }
 
-    const priceStr = String(priceRaw).trim();
+    const isUSD = baseStr.includes("$") || baseStr.toUpperCase().includes("USD");
 
-    const isUSD = priceStr.includes("$") || priceStr.toUpperCase().includes("USD");
+    const base = parseFloat(baseStr.replace(/[^0-9.]/g, ""));
 
-    const price = parseFloat(priceStr.replace(/[^0-9.]/g, ""));
-
-    if (isNaN(price)) {
+    if (isNaN(base)) {
 
         return "";
 
@@ -145,7 +169,7 @@ function getGstPrice(item) {
 
     }
 
-    const total = price * (1 + gst / 100);
+    const total = base * (1 + gst / 100);
 
     return isUSD ? "$" + total : "₹" + total;
 
@@ -253,7 +277,7 @@ function displayResults(list) {
 
             ${gstDisplay ? `<div class="row"><span class="label">GST:</span> ${gstDisplay}</div>` : ""}
 
-            ${gstPrice ? `<div class="row"><span class="label">Price (Incl. GST):</span> ${formatCurrency(gstPrice)}</div>` : ""}
+            ${gstPrice ? `<div class="row"><span class="label">Amount (Incl. GST):</span> ${formatCurrency(gstPrice)}</div>` : ""}
 
             ${ourNumber ? `<div class="row"><span class="label">Our No.:</span> ${ourNumber}</div>` : ""}
 
