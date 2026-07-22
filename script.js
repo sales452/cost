@@ -7,7 +7,7 @@ const resultsDiv = document.getElementById("results");
 
 async function loadData() {
 
-    resultsDiv.innerHTML = "<div class='loading'>Loading Products...</div>";
+    resultsDiv.innerHTML = "<div class='loading'>Loading products...</div>";
 
     try {
 
@@ -52,7 +52,7 @@ function getField(item, keys) {
 
 }
 
-// Format Currency
+// Format currency
 function formatCurrency(raw) {
 
     if (raw === undefined || raw === null || raw === "") {
@@ -82,16 +82,30 @@ function formatCurrency(raw) {
 
     }
 
-    return "₹" + num.toLocaleString("en-IN", {
+    return "\u20b9" + num.toLocaleString("en-IN", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
 
 }
 
+function numericValue(formatted) {
+
+    if (!formatted || formatted === "-") {
+
+        return 0;
+
+    }
+
+    const n = parseFloat(String(formatted).replace(/[^0-9.]/g, ""));
+
+    return isNaN(n) ? 0 : n;
+
+}
+
 const DEFAULT_GST_RATE = 18;
 
-// Calculate GST Price (for the FULL quantity, matching "Amount")
+// Calculate GST price (for the full quantity, matching "Amount")
 function getGstPrice(item) {
 
     const directGstPrice = getField(item, [
@@ -171,7 +185,7 @@ function getGstPrice(item) {
 
     const total = base * (1 + gst / 100);
 
-    return isUSD ? "$" + total : "₹" + total;
+    return isUSD ? "$" + total : "\u20b9" + total;
 
 }
 
@@ -181,7 +195,7 @@ function searchProducts() {
 
     if (query === "") {
 
-        resultsDiv.innerHTML = "";
+        resultsDiv.innerHTML = "<div class='loading'>Type to search products...</div>";
 
         return;
 
@@ -214,13 +228,16 @@ function displayResults(list) {
 
     if (list.length === 0) {
 
-        resultsDiv.innerHTML = "<div class='no-result'>No Products Found</div>";
+        resultsDiv.innerHTML = "<div class='no-result'>No products found.</div>";
 
         return;
 
     }
 
-    resultsDiv.innerHTML = list.map(item => {
+    let totalAmount = 0;
+    let totalFinal = 0;
+
+    const rowsHtml = list.map(item => {
 
         const itemName = getField(item, ["ITEM"]) || "-";
         const customer = getField(item, ["CUSTOMER"]) || "-";
@@ -259,32 +276,49 @@ function displayResults(list) {
 
         }
 
+        totalAmount += numericValue(formatCurrency(amount));
+        totalFinal += numericValue(formatCurrency(gstPrice));
+
         return `
-
-        <div class="card">
-
-            <h3>${itemName}</h3>
-
-            <div class="row"><span class="label">Customer:</span> ${customer}</div>
-
-            <div class="row"><span class="label">Engine:</span> ${engine}</div>
-
-            <div class="row"><span class="label">Quantity:</span> ${qtyDisplay}</div>
-
-            <div class="row"><span class="label">Price:</span> ${formatCurrency(price)}</div>
-
-            <div class="row"><span class="label">Amount:</span> ${formatCurrency(amount)}</div>
-
-            ${gstDisplay ? `<div class="row"><span class="label">GST:</span> ${gstDisplay}</div>` : ""}
-
-            ${gstPrice ? `<div class="row"><span class="label">Amount (Incl. GST):</span> ${formatCurrency(gstPrice)}</div>` : ""}
-
-            ${ourNumber ? `<div class="row"><span class="label">Our No.:</span> ${ourNumber}</div>` : ""}
-
-        </div>
-
+        <tr>
+            <td data-label="Item" class="tt-item">${itemName}</td>
+            <td data-label="Customer">${customer}</td>
+            <td data-label="Engine">${engine}</td>
+            <td data-label="Quantity" class="tt-num">${qtyDisplay}</td>
+            <td data-label="Price" class="tt-num">${formatCurrency(price)}</td>
+            <td data-label="Amount" class="tt-num">${formatCurrency(amount)}</td>
+            <td data-label="GST" class="tt-center">${gstDisplay ? `<span class="tt-badge">${gstDisplay}</span>` : "-"}</td>
+            <td data-label="Incl. GST" class="tt-num tt-final">${gstPrice ? formatCurrency(gstPrice) : "-"}</td>
+            <td data-label="Our No.">${ourNumber || "-"}</td>
+        </tr>
         `;
 
     }).join("");
+
+    resultsDiv.innerHTML = `
+        <div class="tt-stats">
+            <div class="tt-stat"><p>Results</p><p>${list.length}</p></div>
+            <div class="tt-stat"><p>Total amount</p><p>\u20b9${Math.round(totalAmount).toLocaleString("en-IN")}</p></div>
+            <div class="tt-stat"><p>Total incl. GST</p><p>\u20b9${Math.round(totalFinal).toLocaleString("en-IN")}</p></div>
+        </div>
+        <div class="tt-table-wrap">
+            <table class="tt-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Customer</th>
+                        <th>Engine</th>
+                        <th class="tt-num">Qty</th>
+                        <th class="tt-num">Price</th>
+                        <th class="tt-num">Amount</th>
+                        <th class="tt-center">GST</th>
+                        <th class="tt-num">Incl. GST</th>
+                        <th>Our No.</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>
+    `;
 
 }
